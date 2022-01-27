@@ -21,7 +21,7 @@ def gradient_LP_antithetic_estimator(all_rollouts, A, sigma, *args, **kwargs):
     g = Gradient_LP(gradient_y, epsilons)
     return g
 
-def invHessian_LP_structured_PTinv_estimator(all_rollouts, A, sigma, PT_threshold=-1):
+def invHessian_LP_structured_PTinv_estimator(all_rollouts, A, sigma, PT_threshold):
     # (F(theta + sigma*epsilons) + F(theta - sigma*epsilons) - 2*F(theta)) / (sigma**2)
     _, d = A.shape
     hessian_y = np.array(all_rollouts[:-1, 0] + all_rollouts[:-1, 1] - sum(all_rollouts[-1])) / (sigma**2)
@@ -71,7 +71,7 @@ def HessianES(params, master, gradient_estimator, invhessian_estimator, cov=None
     rollouts, timesteps = aggregate_rollouts_hessianES(master, A, params)
 
     g = gradient_estimator(rollouts, A, params["sigma"], np.linalg.inv(cov))
-    invH = invhessian_estimator(rollouts, A, params["sigma"])
+    invH = invhessian_estimator(rollouts, A, params["sigma"], params["PT_threshold"])
     return (g, invH, n_samples, timesteps)
 
 def create_data_folder_name(params):
@@ -80,7 +80,7 @@ def create_data_folder_name(params):
 
 def run_HessianES(params, gradient_estimator, invhessian_estimator, master=None, normalize=False):
     params['dir'] = create_data_folder_name(params)
-    data_folder = './data/'+params['dir']+'_normalize' + str(normalize) +'_hessianES'
+    data_folder = './data/'+params['dir']+'_normalize' + str(normalize) + '_PT' + str(params['PT_threshold']) +'_hessianES'
     if not(os.path.exists(data_folder)):
         os.makedirs(data_folder)
     if not master:
@@ -116,7 +116,8 @@ def run_HessianES(params, gradient_estimator, invhessian_estimator, master=None,
             test_policy = worker(params, master, np.zeros([1, master.N]), 0)
             reward = test_policy.rollout(train=False)
             count = 0
-            while (reward < rewards[-1] + lr*params['alpha']*(g@update_direction)) and lr > 1e-30:
+            # while (reward < rewards[-1] + lr*params['alpha']*(g@update_direction)) and lr > 1e-30:
+            while (reward < rewards[-1] + lr * params['alpha'] * (g @ update_direction)) and count <= params['max_backtracking']:
                 count += 1
                 master.update(-update) # Cancel the previous update first
                 lr *= params['beta']

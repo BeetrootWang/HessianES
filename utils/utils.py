@@ -104,9 +104,9 @@ def get_PTinverse(diag_H, PT_threshold=-1):
         - diagonal of the diagonal matrix of the svd of PT inverse
         [diag(\Lambda^{-1}_{PT})]
     """
-    # Assume we are solving a maximization problem and the estimated Hessian is expected to be Negative definite
-    diag_H[diag_H >= PT_threshold] = PT_threshold
-    return diag_H ** (-1)
+    # PT inverse for maximization problem (NT inverse actually)
+    diag_H[abs(diag_H) <= PT_threshold] = PT_threshold
+    return -abs(diag_H) ** (-1)
 
 def Hessian_L2_structured(y, epsilons):
     reg = LinearRegression(fit_intercept=False)
