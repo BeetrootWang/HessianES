@@ -6,25 +6,24 @@ import pandas as pd
 import gym
 import matplotlib.pyplot as plt
 import sys
+sys.path.append('asebo')
+from asebo.worker import get_policy
+from utils.methods import run_HessianES, gradient_LP_antithetic_estimator, invHessian_LP_structured_PTinv_estimator
 
-from utils.methods import run_HessianES, \
-                    gradient_antithetic_estimator, gradient_LP_antithetic_estimator, gradient_L2_antithetic_estimator,\
-                    invHessian_identity_estimator, invHessian_LP_structured_PTinv_estimator, invHessian_L2_structured_PTinv_estimator
 
-########### Setting up params ##########
 params = {
         # 'env_name': 'Swimmer-v2',
-        # 'env_name': 'HalfCheetah-v2',
+        'env_name': 'HalfCheetah-v2',
         # 'env_name': 'InvertedPendulum-v2',
         # 'env_name': 'InvertedDoublePendulum-v2',
         # 'env_name': 'Reacher-v2',
-        'env_name': 'Hopper-v2',
+        # 'env_name': 'Hopper-v2',
         'steps':1000,
         'h_dim':32,
         'start':0,
         'max_iter':1000,
         'seed':0,
-        'k':140, # ASEBO only?
+        # 'k':140, # ASEBO only?
         'num_sensings':100,
         'log':False,
         'linear':True,
@@ -42,14 +41,26 @@ params = {
         'sample_from_invH': False,
         'max_ts': 1e7
         }
-
-
+def auto_param_setups(params):
+    env = gym.make(params['env_name'])
+    params['ob_dim'] = env.observation_space.shape[0]
+    params['ac_dim'] = env.action_space.shape[0]
+    # params['k'] += -1
+    # params['alpha'] = 1 # ASEBO only
+    params['zeros'] = False
+    master = get_policy(params)
+    if params['log']:
+        params['num_sensings'] = 4 + int(3 * np.log(master.N))
+    if params['linear']:
+        params['num_sensings'] = int(2 * master.N)
+auto_param_setups(params)
 
 gradient_estimator = gradient_LP_antithetic_estimator
-# gradient_estimator = gradient_antithetic_estimator
-# gradient_estimator = gradient_L2_antithetic_estimator
-
 invhessian_estimator = invHessian_LP_structured_PTinv_estimator
 
-# invhessian_estimator =  invHessian_identity_estimator
-# params['filename'] = "identity"
+for seed in range(10):
+    params['seed'] = seed
+    master = get_policy(params)
+
+    # params['learning_rate'] = 1
+    ts, rewards, master = run_HessianES(params, gradient_estimator, invhessian_estimator, master)
