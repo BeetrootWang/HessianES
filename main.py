@@ -1,13 +1,13 @@
-## Run our method
+## test our method
 
-#
+# import packages
 import numpy as np
 import pandas as pd
 import gym
 import matplotlib.pyplot as plt
 import sys
 
-from utils.methods import run_asebo, run_HessianES, run_hessian_asebo,\
+from utils.methods import run_HessianES, \
                     gradient_antithetic_estimator, gradient_LP_antithetic_estimator, gradient_L2_antithetic_estimator,\
                     invHessian_identity_estimator, invHessian_LP_structured_PTinv_estimator, invHessian_L2_structured_PTinv_estimator
 
