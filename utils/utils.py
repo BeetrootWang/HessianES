@@ -134,8 +134,8 @@ def Hessian_LP_structured(y, epsilons):
 
     Uv_sq = cp.square(epsilons@dct_mtx)
     yhat = Uv_sq @ var_H_diag
-    constraints = [var_H_diag <= 0]
-    prob = cp.Problem(cp.Minimize(cp.norm(yhat-y, 1)), constraints)
+    # constraints = [var_H_diag <= 0]
+    prob = cp.Problem(cp.Minimize(cp.norm(yhat-y, 1)), constraints=[])
     prob.solve(solver=cp.GUROBI)
     if prob.status == 'optimal':
         # H = dct_mtx @ np.diag(var_H_diag.value) @ np.transpose(dct_mtx)

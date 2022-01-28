@@ -76,11 +76,21 @@ def HessianES(params, master, gradient_estimator, invhessian_estimator, cov=None
 
 def create_data_folder_name(params):
     return params['env_name'] + params['policy'] + '_h' + str(params['h_dim']) + '_lr' + str(params['learning_rate']) \
-                    + '_num_sensings' + str(params['num_sensings']) +'_' + 'sigma_'+str(params['sigma'])
+                    + '_num_sensings' + str(params['num_sensings']) +'_' + 'sigma_'+str(params['sigma'])\
+
+
+# def create_data_folder_name(params):
+#     dir_name = params['env_name']
+#     for key in params:
+#         if not key == 'seed' and not key == 'env_name':
+#             dir_name = '_' + dir_name + key + '_' + str(params[key])
+#     return dir_name
 
 def run_HessianES(params, gradient_estimator, invhessian_estimator, master=None, normalize=False):
     params['dir'] = create_data_folder_name(params)
-    data_folder = './data/'+params['dir']+'_normalize' + str(normalize) + '_PT' + str(params['PT_threshold']) +'_hessianES'
+    data_folder = './data/'+params['dir']+'_normalize' + str(normalize) + '_PT' + str(params['PT_threshold']) \
+                  + '_alpha' + str(params['alpha']) + '_beta' + str(params['beta']) \
+                  +'_hessianES'
     if not(os.path.exists(data_folder)):
         os.makedirs(data_folder)
     if not master:
@@ -102,6 +112,7 @@ def run_HessianES(params, gradient_estimator, invhessian_estimator, master=None,
     while ts_cumulative < params['max_ts']:
         params['n_iter'] = n_iter
         g, invH, n_samples, timesteps = HessianES(params, master, gradient_estimator, invhessian_estimator, cov)
+        # import pdb; pdb.set_trace()
         if params['sample_from_invH']:
             cov = -invH
         update_direction = -invH@g

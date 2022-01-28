@@ -24,7 +24,7 @@ params = {
         'max_iter':1000,
         'seed':0,
         # 'k':140, # ASEBO only?
-        'num_sensings':100,
+        # 'num_sensings':10,
         'log':False,
         'linear':True,
         'threshold':0.995,
@@ -34,12 +34,12 @@ params = {
         'policy':'Toeplitz', # Linear or Toeplitz
         'shift':0,
         'min':10,
-        'sigma':1e-1,
+        'sigma':0.05,
         'backtracking':True,
-        'alpha': 1e-6,
+        'alpha': 0.1,
         'beta': 0.1,
         'sample_from_invH': False,
-        'max_ts': 1e5,
+        'max_ts': 3e5,
         'PT_threshold': 1e1,
         'max_backtracking': 5
         }
@@ -60,12 +60,14 @@ auto_param_setups(params)
 gradient_estimator = gradient_LP_antithetic_estimator
 invhessian_estimator = invHessian_LP_structured_PTinv_estimator
 
-for seed in range(5):
+for seed in range(1):
     params['seed'] = seed
-    for PT_threshold in [0.1,1,10]:
-        for max_bt in [2,5]:
+    for PT_threshold in [1e-3]:
+        for max_bt in [5]:
             params['max_backtracking'] = max_bt
             params['PT_threshold'] = PT_threshold
             master = get_policy(params)
             # params['learning_rate'] = 1
             ts, rewards, master = run_HessianES(params, gradient_estimator, invhessian_estimator, master)
+            sigma = params['sigma']
+            print(f'seed:{seed}, \t PT_threshold:{PT_threshold},\t max_backtracking:{max_bt}, \t sigma:{sigma}')
