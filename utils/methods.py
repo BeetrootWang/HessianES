@@ -73,7 +73,7 @@ def HessianES(params, master, gradient_estimator, invhessian_estimator, cov=None
     mu = np.repeat(0, master.N)
 
     # A = np.random.multivariate_normal(mu, cov, n_samples)
-    np.random.seed(None)
+    np.random.seed(params['seed'])
     A = orthogonal_gaussian(master.N, n_samples)
     # A /= np.linalg.norm(A, axis =-1)[:, np.newaxis]
     A *= params["sigma"]
@@ -294,7 +294,7 @@ def HessianASEBO(params, gradient_estimator, inv_Hessian_estimator, master, G):
         alpha = 1
         n_samples = params['num_sensings']
 
-    np.random.seed(None)
+    np.random.seed(params['seed'])
     cov = (alpha / master.N) * np.eye(master.N) + ((1 - alpha) / n_samples) * UUT
     # cov = (alpha) * np.eye(master.N) + ((1-alpha) / n_samples * master.N) * UUT
     cov *= params['sigma']

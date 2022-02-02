@@ -29,6 +29,16 @@ def auto_param_setups(params):
     if params['linear']:
         params['num_sensings'] = int(2 * master.N)
 
+def play(env, worker):
+    state = env.reset()
+    while 1:
+        action = worker.policy.evaluate(state)
+        action = np.clip(action, worker.env.action_space.low[0], worker.env.action_space.high[0])
+        action = action.reshape(len(action), )
+        state, reward, done, info = env.step(action)
+        env.render()
+        if done:
+            break
 
 params = {
         'env_name': 'InvertedDoublePendulum-v2',
@@ -38,7 +48,6 @@ params = {
         'max_iter':1000,
         'seed':0,
         'k':140, # ASEBO only?
-        # 'num_sensings':10,
         'log':False,
         'linear':True,
         'threshold':0.995,
@@ -48,12 +57,11 @@ params = {
         'policy':'Toeplitz', # Linear or Toeplitz
         'shift':0,
         'min':10,
-        # 'sigma':0.05,
         'backtracking':True,
         'alpha_bt': 0.1,
         'beta': 0.25,
         'sample_from_invH': False,
-        'max_ts': 1e6,
+        'max_ts': 1e5,
         'PT_threshold': 1e1,
         'max_backtracking': 5
         }
@@ -79,20 +87,10 @@ for seed in range(1):
 
 
 master = get_policy(params)
-master.params=np.load(data_folder + "/hessianES_params_seed0.npy")
+master.params=np.load(data_folder + "/asebo_params_seed0.npy")
 test_policy = worker(params, master, np.zeros([1, master.N]), 0)
-
 env = Monitor(gym.make(params['env_name']), './video', force=True)
 env._max_episode_steps = params['steps']
 
-def play(env, worker):
-    state = env.reset()
-    while 1:
-        action = worker.policy.evaluate(state)
-        action = np.clip(action, worker.env.action_space.low[0], worker.env.action_space.high[0])
-        action = action.reshape(len(action), )
-        state, reward, done, info = env.step(action)
-        env.render()
-        if done:
-            break
+
 play(env, test_policy)
