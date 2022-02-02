@@ -8,7 +8,6 @@ from scipy.linalg import cholesky
 from numpy.linalg import LinAlgError
 from numpy.random import standard_normal
 from asebo.worker import get_policy, worker
-from asebo.es import ES, aggregate_rollouts
 from asebo.optimizers import Adam
 from utils.utils import Gradient_LP, Gradient_L2, Hessian_LP, Hessian_LP_structured, Hessian_L2_structured, get_PTinverse, orthogonal_gaussian
 
@@ -132,8 +131,8 @@ def run_HessianES(params, gradient_estimator, invhessian_estimator, master=None,
             test_policy = worker(params, master, np.zeros([1, master.N]), 0)
             reward = test_policy.rollout(train=False)
             count = 0
-            # while (reward < rewards[-1] + lr*params['alpha']*(g@update_direction)) and lr > 1e-30:
-            while (reward < rewards[-1] + lr * params['alpha'] * (g @ update_direction)) and count <= params['max_backtracking']:
+            # while (reward < rewards[-1] + lr*params['alpha_bt']*(g@update_direction)) and lr > 1e-30:
+            while (reward < rewards[-1] + lr * params['alpha_bt'] * (g @ update_direction)) and count <= params['max_backtracking']:
                 count += 1
                 master.update(-update) # Cancel the previous update first
                 lr *= params['beta']
@@ -143,7 +142,7 @@ def run_HessianES(params, gradient_estimator, invhessian_estimator, master=None,
                 test_policy = worker(params, master, np.zeros([1, master.N]), 0)
                 reward = test_policy.rollout(train=False)
                 timesteps += test_policy.timesteps
-            # if (reward < rewards[-1] + lr*params['alpha']*(g@update_direction)):
+            # if (reward < rewards[-1] + lr*params['alpha_bt']*(g@update_direction)):
             #     # Do not update
             #     master.update(-update)
             #     reward = rewards[-1]
@@ -179,12 +178,12 @@ def run_HessianES(params, gradient_estimator, invhessian_estimator, master=None,
         np.save("{}/hessianES_params_seed{}.npy".format(data_folder, params['seed']),
         master.params)
 
-    return ts, rewards, master
+    return ts, rewards, master, data_folder
 
 def run_HessianES_adap_sigma(params, gradient_estimator, invhessian_estimator, master=None, normalize=False):
     params['dir'] = create_data_folder_name(params)
     data_folder = './data/'+params['dir']+'_normalize' + str(normalize) + '_PT' + str(params['PT_threshold']) \
-                  + '_alpha' + str(params['alpha']) + '_beta' + str(params['beta']) \
+                  + '_alphabt' + str(params['alpha_bt']) + '_beta' + str(params['beta']) \
                   +'_hessianES_gauss'
     if not(os.path.exists(data_folder)):
         os.makedirs(data_folder)
@@ -222,8 +221,8 @@ def run_HessianES_adap_sigma(params, gradient_estimator, invhessian_estimator, m
             test_policy = worker(params, master, np.zeros([1, master.N]), 0)
             reward = test_policy.rollout(train=False)
             count = 0
-            # while (reward < rewards[-1] + lr*params['alpha']*(g@update_direction)) and lr > 1e-30:
-            while (reward < rewards[-1] + lr * params['alpha'] * (g @ update_direction)) and count <= params['max_backtracking']:
+            # while (reward < rewards[-1] + lr*params['alpha_bt']*(g@update_direction)) and lr > 1e-30:
+            while (reward < rewards[-1] + lr * params['alpha_bt'] * (g @ update_direction)) and count <= params['max_backtracking']:
                 count += 1
                 master.update(-update) # Cancel the previous update first
                 lr *= params['beta']
@@ -233,7 +232,7 @@ def run_HessianES_adap_sigma(params, gradient_estimator, invhessian_estimator, m
                 test_policy = worker(params, master, np.zeros([1, master.N]), 0)
                 reward = test_policy.rollout(train=False)
                 timesteps += test_policy.timesteps
-            # if (reward < rewards[-1] + lr*params['alpha']*(g@update_direction)):
+            # if (reward < rewards[-1] + lr*params['alpha_bt']*(g@update_direction)):
             #     # Do not update
             #     master.update(-update)
             #     reward = rewards[-1]
@@ -271,7 +270,7 @@ def run_HessianES_adap_sigma(params, gradient_estimator, invhessian_estimator, m
         np.save("{}/hessianES_params_seed{}.npy".format(data_folder, params['seed']),
         master.params)
 
-    return ts, rewards, master
+    return ts, rewards, master, data_folder
 
 # Hessian ES + asebo idea
 def HessianASEBO(params, gradient_estimator, inv_Hessian_estimator, master, G):
@@ -399,8 +398,9 @@ def run_hessian_asebo(params, gradient_estimator, inv_Hessian_estimator, master=
         samples.append(n_samples)
 
         # print('Iteration: %s, Rollouts: %s, Reward: %s, Alpha: %s, Samples: %s' %(n_iter, n_eps, reward, params['alpha'], n_samples))
-        print('Iteration: %s, Alpha: %s, Time Steps: %.2e, Reward: %.2f, Update Direction Norm: %.2f' % (
-        n_iter, params['alpha'], ts_cumulative, reward, np.linalg.norm(gradient)))
+
+        print('Iteration: %s, LR: %.2e, Alpha: %s, Time Steps: %.2e, Reward: %.2f, Update Direction Norm: %.2f' % (
+        n_iter, params['learning_rate'], params['alpha'], ts_cumulative, reward, np.linalg.norm(gradient)))
         n_iter += 1
 
         out = pd.DataFrame({'Rollouts': rollouts, 'Learning Rate':
@@ -411,4 +411,4 @@ def run_hessian_asebo(params, gradient_estimator, inv_Hessian_estimator, master=
 
         np.save("{}/asebo_params_seed{}.npy".format(data_folder, params['seed']),
                 master.params)
-    return ts, rewards, master
+    return ts, rewards, master, data_folder

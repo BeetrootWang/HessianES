@@ -107,8 +107,6 @@ def get_PTinverse(diag_H, PT_threshold=-1):
     # PT inverse for maximization problem (NT inverse actually)
     diag_H[abs(diag_H) <= PT_threshold] = PT_threshold
     return -abs(diag_H) ** (-1)
-    # diag_H[diag_H >= -PT_threshold] = -PT_threshold
-    # return diag_H **(-1)
 
 def Hessian_L2_structured(y, epsilons):
     reg = LinearRegression(fit_intercept=False)
@@ -136,7 +134,6 @@ def Hessian_LP_structured(y, epsilons):
 
     Uv_sq = cp.square(epsilons@dct_mtx)
     yhat = Uv_sq @ var_H_diag
-    # constraints = [var_H_diag <= 0]
     prob = cp.Problem(cp.Minimize(cp.norm(yhat-y, 1)), constraints=[])
     prob.solve(solver=cp.GUROBI)
     if prob.status == 'optimal':
