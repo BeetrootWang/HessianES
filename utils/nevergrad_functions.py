@@ -38,7 +38,6 @@ def lunacek(theta):
         thirdSum += 1.0 - math.cos(2*math.pi*(theta[i]-mu1))
     return min(firstSum, 1.0*pdim + s*secondSum)+10*thirdSum
 
-
 def F_lunacek(theta):
     if theta.ndim == 1:
         theta = np.expand_dims(theta, 0)

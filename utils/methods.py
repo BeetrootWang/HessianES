@@ -12,6 +12,8 @@ from asebo.optimizers import Adam
 from utils.utils import Gradient_LP, Gradient_L2, Hessian_LP, Hessian_LP_structured, Hessian_L2_structured, get_PTinverse, orthogonal_gaussian
 import copy
 
+# TODO: it is not efficient to store invH or return invH; A better way is to pass the eigenvalues of it
+
 def gradient_LP_antithetic_estimator(all_rollouts, A, sigma, *args, **kwargs):
     gradient_y = np.array(
             np.concatenate([all_rollouts[:-1, 0], all_rollouts[:-1, 1]])
@@ -37,15 +39,18 @@ def invHessian_LP_structured_PTinv_estimator(all_rollouts, A, sigma, PT_threshol
     _, d = A.shape
     hessian_y = np.array(all_rollouts[:-1, 0] + all_rollouts[:-1, 1] - sum(all_rollouts[-1])) / (sigma**2)
     var_H_diag, dct_mtx = Hessian_LP_structured(hessian_y, A[:-1, :]/sigma)
-    # import pdb; pdb.set_trace()
     Hinv = dct_mtx @ (np.diag(get_PTinverse(var_H_diag, PT_threshold)) @ dct_mtx)
     return Hinv
 
 ########################################################################################################################
 # functions for Nevergrad
 
-def aggregate_rollouts_hessianES_nevergrad(F, A, params):
-    pass
+def aggregate_rollouts_hessianES_nevergrad(F, epsilons, sigma, theta_t):
+    F_plus = F(theta_t + sigma * epsilons)
+    F_minus = F(theta_t - sigma * epsilons)
+    all_fnc_values = np.array([F_plus, F_minus]).T
+    # import pdb; pdb.set_trace()
+    return all_fnc_values
 
 ## Benchmarks
 def ES_vanilla_gradient(F, lr, sigma, theta_0, num_samples, time_steps, seed=1):
@@ -119,8 +124,47 @@ def Hess_Aware(F, lr, sigma, theta_0, num_samples, time_steps, p=1, H_lambda=0, 
 
 ## Our method
 
+def run_LP_Hessian_structured(F, lr, sigma, theta_0, num_samples, time_steps, seed, alpha, beta, PT_threshold):
+    np.random.seed(seed)
+    count = 0
+    lst_evals = []
+    lst_f = []
+    d = theta_0.shape[0]
+    n = num_samples
+    theta_t = copy.deepcopy(theta_0)
+    for t in range(time_steps):
+        eta = lr
+        # **** sample epsilons, record some parameters & function values ****#
+        epsilons = np.random.multivariate_normal(mean=np.zeros(d), cov=np.identity(d), size=num_samples)  # n by d
+        all_fnc_values = aggregate_rollouts_hessianES_nevergrad(F, epsilons, sigma, theta_t)
+        count += 2 * num_samples
+        # **** update using Newton's method ****#
+        g = gradient_antithetic_estimator(all_fnc_values, epsilons, sigma)
+        invH = invHessian_LP_structured_PTinv_estimator(all_fnc_values, epsilons, sigma, PT_threshold)
+        update_direction = -invH @ g
+        theta_t_ = theta_t + eta * update_direction
+        F_t = F(theta_t)
+        count += 1
 
-#########################################################################################################
+        # backtracking
+        cnt = 0
+        while F(theta_t_) < (F_t + alpha * eta * np.transpose(g) @ update_direction):
+            if cnt >= 30:
+                break
+            cnt += 1
+            eta *= beta
+            theta_t_ = theta_t + eta * update_direction
+
+
+        theta_t = theta_t_
+        count += cnt
+
+        # **** record current status ****#
+        lst_evals.append(count)
+        lst_f.append(F(theta_t))
+
+    return theta_t, F(theta_t), lst_evals, lst_f
+
 ########################################################################################################################
 # functions for RL task
 

@@ -28,7 +28,6 @@ def Gradient_L2(y, epsilons):
     reg.fit(epsilons, y)
     return reg.coef_
 
-
 def Hessian_LP(y, epsilons):
     """
     y = (F(theta + sigma*epsilons) + F(theta - sigma*epsilons) - 2*F(theta)) / (sigma**2)
@@ -68,7 +67,6 @@ def Hessian_LP(y, epsilons):
             idx += d-j
         return H
     raise ValueError("Hessian LP did not converge: %s" % prob.status)
-
 
 def get_dct_mtx(d):
     """
