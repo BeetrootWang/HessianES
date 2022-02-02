@@ -10,6 +10,7 @@ from numpy.random import standard_normal
 from asebo.worker import get_policy, worker
 from asebo.optimizers import Adam
 from utils.utils import Gradient_LP, Gradient_L2, Hessian_LP, Hessian_LP_structured, Hessian_L2_structured, get_PTinverse, orthogonal_gaussian
+import copy
 
 def gradient_LP_antithetic_estimator(all_rollouts, A, sigma, *args, **kwargs):
     gradient_y = np.array(
@@ -39,6 +40,89 @@ def invHessian_LP_structured_PTinv_estimator(all_rollouts, A, sigma, PT_threshol
     # import pdb; pdb.set_trace()
     Hinv = dct_mtx @ (np.diag(get_PTinverse(var_H_diag, PT_threshold)) @ dct_mtx)
     return Hinv
+
+########################################################################################################################
+# functions for Nevergrad
+
+def aggregate_rollouts_hessianES_nevergrad(F, A, params):
+    pass
+
+## Benchmarks
+def ES_vanilla_gradient(F, lr, sigma, theta_0, num_samples, time_steps, seed=1):
+    np.random.seed(seed)
+    count = 0
+    lst_evals = []
+    lst_f = []
+    d = theta_0.shape[0]
+    theta_t = copy.deepcopy(theta_0)
+    for t in range(time_steps):
+        # **** sample epsilons ****#
+        epsilons = np.random.multivariate_normal(mean=np.zeros(d), cov=np.identity(d), size=num_samples)  # n by d
+        # **** compute function values ****#
+        F_val = F(theta_t + sigma * epsilons)
+        count += num_samples
+        # **** update theta ****#
+        new_theta = theta_t
+        F_val = F_val.reshape(1, num_samples)
+        update = (F_val @ epsilons).ravel()
+        new_theta += lr / (num_samples * sigma) * update
+        theta_t = new_theta
+        # **** record current status ****#
+        lst_evals.append(count)
+        lst_f.append(F(theta_t))
+    return theta_t, F(theta_t), None, lst_evals, lst_f
+
+def Hess_Aware(F, lr, sigma, theta_0, num_samples, time_steps, p=1, H_lambda=0, seed=1):
+    np.random.seed(seed)
+    count = 0
+    lst_evals = []
+    lst_f = []
+    d = theta_0.shape[0]
+    H = None
+    theta_t = copy.deepcopy(theta_0)
+    for t in range(time_steps):
+        # **** sample epsilons ****#
+        epsilons = np.random.multivariate_normal(mean=np.zeros(d), cov=np.identity(d), size=num_samples)  # n by d
+
+        # **** compute function values ****#
+        F_plus = F(theta_t + sigma * epsilons)
+        F_minus = F(theta_t - sigma * epsilons)
+        F_val = np.array([F(theta_t)] * num_samples).ravel()
+        count += 2 * num_samples
+
+        if t % p == 0:
+            H = np.zeros((d, d))
+            eps = np.expand_dims(epsilons, -1)
+            eet = eps * np.transpose(eps, (0, 2, 1))
+            H_samples = (F_plus.reshape(-1, 1, 1) + F_minus.reshape(-1, 1, 1) - 2 * F_val.reshape(-1, 1, 1)) * eet
+            H = H_samples.mean(axis=0) / (2 * sigma ** 2)
+            u, s, vh = np.linalg.svd(H)
+            H_nh = u @ np.diag(s ** -0.5) @ vh
+            H_nh_3d = np.ones((num_samples, d, d)) * H_nh
+
+        # **** update theta: compute g ****#
+        Fs = F(theta_t + sigma * np.transpose((H_nh @ np.transpose(epsilons)))) - F(theta_t)
+        count += num_samples
+        eps = np.expand_dims(epsilons, -1)
+        g_samples = H_nh_3d @ eps * Fs.reshape(-1, 1, 1) / sigma
+        g = g_samples.mean(axis=0).ravel()
+
+        # **** update theta: the rest ****#
+        new_theta = theta_t + lr * g
+        theta_t = new_theta
+
+        # **** record current status ****#
+        lst_evals.append(count)
+        lst_f.append(F(theta_t))
+
+    return theta_t, F(theta_t), H, lst_evals, lst_f
+
+## Our method
+
+
+#########################################################################################################
+########################################################################################################################
+# functions for RL task
 
 def aggregate_rollouts_hessianES(master, A, params):
     """
